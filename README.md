@@ -10,6 +10,7 @@ python process.py
 ## Using docker
 Note: Please use a local config.py to override the default config.py built in the container image
 ```
+docker build -t sibionic-watch:latest .
 docker run -d -v /path/to/local/config.py:/app/config.py sibionic-watch
 ```
 
