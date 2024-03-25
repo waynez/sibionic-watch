@@ -30,6 +30,16 @@ class GlucoseData:
             self.data[timestamp] = (value, effective)
 
     @classmethod
+    def get_new_data_after_time(cls, cur_glucose_data, timestamp):
+        if not isinstance(cur_glucose_data, cls):
+            raise TypeError("Error: Input parameter must be an instance of the same class as the object")
+
+        dt = arrow.get(timestamp)
+        new_data = copy.copy(cur_glucose_data)
+        new_data.data = {k: v for k, v in cur_glucose_data.data.items() if arrow.get(k) > dt}
+        return new_data
+
+    @classmethod
     def compare_and_get_new_data(cls, cached_glucose_data, updated_glucose_data):
         if not isinstance(cached_glucose_data, cls) or not isinstance(updated_glucose_data, cls):
             raise TypeError("Error: Input parameter must be an instance of the same class as the object")
@@ -104,6 +114,24 @@ if __name__ == '__main__':
     dt = arrow.get(int(data_latest.latestGlucoseTime))
     print('Most recent glucose data was read at {}'.format(dt.humanize()))
 
+    # Filter out those records already in NightScout
+    response = requests.get(config.NIGHTSCOUT_API_EP_ENTRIES,
+                            headers={'api-secret': config.NIGHTSCOUT_API_SECRET,
+                                     'Accept': 'application/json'})
+    if not response.ok:
+        print('Failed to read historical entries from {}'.format(config.NIGHTSCOUT_API_EP_ENTRIES))
+        print('  Error: {}'.format(response.text))
+    else:
+        data_recorded = json.loads(response.text)
+        most_recent_gd = 0
+        # NightScout API doesn't return all the entries by default, therefore we get the most recent
+        # record, and assume all data before that time were properly recorded
+        for record in data_recorded:
+            most_recent_gd = record['date'] if record['date'] > most_recent_gd else most_recent_gd
+        if most_recent_gd != 0:
+            print('Nightscout recorded most recent historical data at {}'.format(arrow.get(most_recent_gd).humanize()))
+            data_to_process = GlucoseData.get_new_data_after_time(data_to_process, most_recent_gd)
+
     # Processing new data:
     if not data_to_process.data:
         print("No new data to process")
@@ -123,7 +151,7 @@ if __name__ == '__main__':
                                 date=timestamp,
                                 dateString=arrow.get(timestamp).to('Asia/Shanghai').isoformat()))
 
-        response = requests.post(config.NIGHTSCOUT_API_EP_NEW_ENTRIES,
+        response = requests.post(config.NIGHTSCOUT_API_EP_ENTRIES,
                                  headers={'api-secret':config.NIGHTSCOUT_API_SECRET},
                                  json=entries)
         if response.ok:
@@ -131,3 +159,5 @@ if __name__ == '__main__':
         else:
             print("Upload failed. {}".format(response.text))
 
+# TODO:
+#   1. Move cache file under ./cache, this is to support docker: a) docker runs without any history cache; 2) docker runs with external mounted ./cache

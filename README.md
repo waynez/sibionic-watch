@@ -7,6 +7,12 @@
 python process.py
 ```
 
+## Using docker
+Note: Please use a local config.py to override the default config.py built in the container image
+```
+docker run -d -v /path/to/local/config.py:/app/config.py sibionic-watch
+```
+
 # How it works
 1. It reads the SiBionic API to retrieve glucose data of the current installed device from the user you followed (This requires you to have a follow relationship with the other user which you want to monitor the glucose data)
 2. It caches the glucose data into a file, and will only process new datas not showing in the cache
