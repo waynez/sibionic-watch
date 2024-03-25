@@ -3,6 +3,7 @@ import sys
 import copy
 import json
 import arrow
+import argparse
 import requests
 
 import config
@@ -83,6 +84,15 @@ def bg_mmol_to_mgdl(value):
     return value * 18.018018
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cache_dir', help="Directory where the cache data will be saved. E.g., /usr/local/data/cgm/", required=False)
+    args = parser.parse_args()
+    cache_dir = os.path.join(os.getcwd(), 'cache')
+    if args.cache_dir is not None:
+        cache_dir = args.cache_dir
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+
     response = requests.get(config.SIBIONIC_URL_FOLLOWED_USER_DATA, headers={'Authorization':config.SIBIONIC_ACCESS_TOKEN})
     if not response.ok:
         print("Error! SiBionic API access failed!")
@@ -94,13 +104,13 @@ if __name__ == '__main__':
     #   1. If this is a new device
     #   2. If this is an existing device, but with updated data
     #   3. If this is an existing device, but no new data
-    fileName = data_latest.deviceName
+    cacheFile = os.path.join(cache_dir, data_latest.deviceName)
     data_cached = None
     data_to_process = None
-    if os.path.exists(fileName):
-        with open(fileName, 'r') as f:
+    if os.path.exists(cacheFile):
+        with open(cacheFile, 'r') as f:
             data_cached = GlucoseData(json.load(f))
-    with open(fileName, 'w') as file:
+    with open(cacheFile, 'w') as file:
         json.dump(content, file, indent=4)
         print("Saving data to {}".format(data_latest.deviceName))
     if data_cached:
@@ -159,5 +169,3 @@ if __name__ == '__main__':
         else:
             print("Upload failed. {}".format(response.text))
 
-# TODO:
-#   1. Move cache file under ./cache, this is to support docker: a) docker runs without any history cache; 2) docker runs with external mounted ./cache
