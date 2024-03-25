@@ -2,6 +2,7 @@ import os
 import sys
 import copy
 import json
+import time
 import arrow
 import argparse
 import requests
@@ -86,7 +87,11 @@ def bg_mmol_to_mgdl(value):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cache_dir', help="Directory where the cache data will be saved. E.g., /usr/local/data/cgm/", required=False)
+    parser.add_argument('--delay', type=int, help="Delay number of seconds before execution", required=False)
     args = parser.parse_args()
+    if args.delay is not None:
+        print("Delaying {} seconds...".format(args.delay))
+        time.sleep(args.delay)
     cache_dir = os.path.join(os.getcwd(), 'cache')
     if args.cache_dir is not None:
         cache_dir = args.cache_dir
