@@ -1,7 +1,21 @@
+# Introduction
+
+If you're a SiBionics CGM sensor user, and are using the SiBionics APP, you might be wondering how to upload the data into your NightScout service. However the mainstream BG upload solution like xDrip+ has not yet supported SiBionics CGM, so the project was initiated aiming to provide a solution for SiBionics users.
+
+## Prerequisites
+
+- A NightScout web service to upload data
+- A SiBionics CGM and registered SiBionics APP user account
+- **Important:** SiBionics APP's 'follow others' feature is available at your region. This feature allows a user to share his/her glucose data with others, and is used by this project to retrieve the data from SiBionics servers
 
 # Before running
 
-1. Modify `config.py`, fill in all the values to access your web service provider's APIs
+Modify `config.py`, fill in all the values to access your web service provider's APIs
+
+- `SIBIONIC_ACCESS_TOKEN`: The access token to access SiBionics API
+- `SIBIONIC_URL_FOLLOWED_USER_DATA`: API URL to fetch data from SiBionics, E.g., 'https://api.sisensing.com/follow/app/<uid>/v2'
+- `NIGHTSCOUT_API_EP_ENTRIES`: NightScout API URL to upload CGM data, E.g., 'https://<nightscout_base_url>/api/v1/entries'
+- `NIGHTSCOUT_API_SECRET`: NightScout API secret, this is the hashed API secret to access NightScout API
 
 # Running
 ```
@@ -13,7 +27,7 @@ Run with a dedicated directory for cache saving
 python process.py --cache_dir=/path/to/cache/dir/
 ```
 
-## Using docker
+# Using docker
 
 Note: Please use a local config.py to override the default config.py built in the container image
 ```
