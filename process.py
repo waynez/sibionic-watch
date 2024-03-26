@@ -103,6 +103,9 @@ if __name__ == '__main__':
         print("Error! SiBionic API access failed!")
         sys.exit(-1)
     content = json.loads(response.text)
+    if content['code'] != 200:
+        print("Error! SiBionic API access failed. Code: {}; Message: {}".format(content['code'], content['msg']))
+        sys.exit(-1)
     data_latest = GlucoseData(content)
 
     # Every time the program executes, it reads the cache, and then make the API call to compare it with cache
