@@ -6,8 +6,16 @@ import time
 import arrow
 import argparse
 import requests
+from enum import Enum
 
 import config
+
+class TrendDirection(Enum):
+    SingleDown = -2
+    FortyFiveDown = -1
+    Flat = 0
+    FortyFiveUp = 1
+    SingleUp = 2
 
 # Data type for the payload returned by https://<SiBionic>/follow/app/<id>/v2
 class GlucoseData:
@@ -17,19 +25,38 @@ class GlucoseData:
         self.latestGlucoseTime = None
         self.data = {}
         if json_data:
+            oldest_precision_timestamp = int(json_data['data']['followedDeviceGlucoseDataPO']['latestGlucoseTime'])
+            # glucoseInfo only has the precision timestamp within 24 hours
+            for glucoseInfo in json_data['data']['followedDeviceGlucoseDataPO']['glucoseInfos']:
+                if glucoseInfo['effective']:
+                    self.add_record(glucoseInfo['t'], glucoseInfo['v'], glucoseInfo['s'])
+                    if glucoseInfo['t'] < oldest_precision_timestamp:
+                        oldest_precision_timestamp = glucoseInfo['t']
+            # glucose data longer than 24 hours will be archived to dailyData, and timestamp will be
+            # rounded down to nearest 5 mintutes
+            archived_maximum_timestamp = GlucoseData.get_archive_timestamp(oldest_precision_timestamp)
             for dailyData in json_data['data']['followedDeviceGlucoseDataPO']['dailyData']:
                 for item in dailyData['data']:
-                    self.add_record(item['t'], item['v'], item['effective'])
+                    # Skip this entry as it's already covered in glucoseInfo
+                    if item['t'] >= archived_maximum_timestamp:
+                        continue
+                    if item['effective'] and item['t'] not in self.data:
+                        self.add_record(item['t'], item['v'])
             self.updateTime = json_data['timestamp']
             self.deviceName = json_data['data']['followedDeviceGlucoseDataPO']['deviceName']
             self.latestGlucoseTime = json_data['data']['followedDeviceGlucoseDataPO']['latestGlucoseTime']
 
-    def add_record(self, timestamp, value, effective):
+    def add_record(self, timestamp, value, trend=None):
         if timestamp in self.data:
-            if self.data[timestamp] != (value, effective):
+            if self.data[timestamp] != (value, trend):
                 raise ValueError(f"Error: Record with timestamp {timestamp} already exists with a different value")
         else:
-            self.data[timestamp] = (value, effective)
+            self.data[timestamp] = (value, trend)
+
+    @classmethod
+    def get_archive_timestamp(cls, timestamp):
+        # A timestamp will be round down to 5 minutes
+        return int(timestamp/1000/(60*5))*1000*(60*5)
 
     @classmethod
     def get_new_data_after_time(cls, cur_glucose_data, timestamp):
@@ -51,12 +78,16 @@ class GlucoseData:
         not_present_data = {}
         not_match_data = {}
         for timestamp, value in cached_glucose_data.data.items():
-            if timestamp not in updated_glucose_data.data:
+            # Any data entry in cached glucose data could either be: a) still with precision timestamp; b) be archived(round down) in updated glucose_data
+            rounddown_time = cls.get_archive_timestamp(timestamp)
+            if timestamp not in updated_glucose_data.data and rounddown_time not in updated_glucose_data.data:
                 not_present_data[timestamp] = value
-            elif value != updated_glucose_data.data[timestamp]:
-                v, e = value
-                n_v, n_e = updated_glucose_data.data[timestamp]
-                not_match_data[timestamp] = (v, e, n_v, n_e)
+            else:
+                new_value = updated_glucose_data.data[timestamp] if timestamp in updated_glucose_data.data else updated_glucose_data.data[rounddown_time]
+                if value[0] != new_value[0]:
+                   v, t = value
+                   n_v, n_t = updated_glucose_data.data[timestamp] if timestamp in updated_glucose_data.data else updated_glucose_data.data[rounddown_time]
+                   not_match_data[timestamp] = (v, t, n_v, n_t)
 
         if not_present_data:
             msg_missing_entry = '\n'.join([f"Timestamp: {timestamp}, Value: {value}" for timestamp, value in not_present_data.items()])
@@ -66,8 +97,18 @@ class GlucoseData:
             raise Exception(f"Validation Error: Existing data entries not match with the updated data: {msg_not_match}")
 
         new_data = copy.copy(updated_glucose_data)
-        # Be noted, the data could still be empty
+        # Extract new data from updated_glucose
         new_data.data = {k: v for k, v in updated_glucose_data.data.items() if k not in cached_glucose_data.data}
+        # A data point with precision timestamp in cache, could become archived in updated glucose data
+        # For example:
+        #     updated:                 (ta, v, -), (ta, v, -), (ts, v, s)
+        #     cache:       (ta, v, -)  (ts, v, s)
+        # In that case, we also need to exclude that from updated_glucose
+        for k, v in cached_glucose_data.data.items():
+            r_k = cls.get_archive_timestamp(k)
+            if r_k in updated_glucose_data.data:
+                del updated_glucose_data.data[r_k]
+        # Be noted, the data could still be empty
         return new_data
 
     def extend(self, other_glucose_data):
@@ -158,17 +199,18 @@ if __name__ == '__main__':
         print("Processing {} new entries.".format(len(data_to_process.data)))
         entries = []
         for timestamp, value in data_to_process.data.items():
-            reading, valid = value
-            if not valid:
-                print("  - Found invalid data, t: {}, v: {}, effective: {}", timestamp, reading, valid)
-                continue
+            reading, trend = value
             bg_mgdl = bg_mmol_to_mgdl(reading)
 
-            entries.append(dict(type="sgv",
-                                sgv=int(bg_mgdl),
-                                date=timestamp,
-                                dateString=arrow.get(timestamp).to('Asia/Shanghai').isoformat()))
+            entry = dict(type="sgv",
+                         sgv=int(bg_mgdl),
+                         date=timestamp,
+                         dateString=arrow.get(timestamp).to('Asia/Shanghai').isoformat())
+            if trend is not None:
+                entry['direction'] = TrendDirection(trend).name
+            entries.append(entry)
 
+        print("Ready to post: {}".format(entries))
         response = requests.post(config.NIGHTSCOUT_API_EP_ENTRIES,
                                  headers={'api-secret':config.NIGHTSCOUT_API_SECRET},
                                  json=entries)
