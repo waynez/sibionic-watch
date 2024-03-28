@@ -11,11 +11,13 @@ from enum import Enum
 import config
 
 class TrendDirection(Enum):
-    SingleDown = -2
-    FortyFiveDown = -1
-    Flat = 0
-    FortyFiveUp = 1
-    SingleUp = 2
+    DoubleDown = -3    # ↓↓ This may exist, but never was seen
+    SingleDown = -2    # ↓
+    FortyFiveDown = -1 # ↘
+    Flat = 0           # →
+    FortyFiveUp = 1    # ↗
+    SingleUp = 2       # ↑
+    DoubleUp = 3       # ↑↑ This may exist, but never was seen
 
 # Data type for the payload returned by https://<SiBionic>/follow/app/<id>/v2
 class GlucoseData:
