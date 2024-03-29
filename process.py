@@ -125,7 +125,7 @@ class GlucoseData:
         return '\n'.join([f"Timestamp: {timestamp}, Value: {value}" for timestamp, value in self.data.items()])
 
 def bg_mmol_to_mgdl(value):
-    return value * 18.018018
+    return round(value * 18.018018)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -205,7 +205,7 @@ if __name__ == '__main__':
             bg_mgdl = bg_mmol_to_mgdl(reading)
 
             entry = dict(type="sgv",
-                         sgv=int(bg_mgdl),
+                         sgv=bg_mgdl,
                          date=timestamp,
                          dateString=arrow.get(timestamp).to('Asia/Shanghai').isoformat())
             if trend is not None:
