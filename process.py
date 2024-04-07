@@ -35,7 +35,7 @@ class GlucoseData:
                     if glucoseInfo['t'] < oldest_precision_timestamp:
                         oldest_precision_timestamp = glucoseInfo['t']
             # glucose data longer than 24 hours will be archived to dailyData, and timestamp will be
-            # rounded down to nearest 5 mintutes
+            # rounded down to nearest mintute
             archived_maximum_timestamp = GlucoseData.get_archive_timestamp(oldest_precision_timestamp)
             for dailyData in json_data['data']['followedDeviceGlucoseDataPO']['dailyData']:
                 for item in dailyData['data']:
@@ -57,8 +57,8 @@ class GlucoseData:
 
     @classmethod
     def get_archive_timestamp(cls, timestamp):
-        # A timestamp will be round down to 5 minutes
-        return int(timestamp/1000/(60*5))*1000*(60*5)
+        # A timestamp will be round down to minutes
+        return int(timestamp/1000/60)*1000*60
 
     @classmethod
     def get_new_data_after_time(cls, cur_glucose_data, timestamp):
