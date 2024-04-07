@@ -161,9 +161,6 @@ if __name__ == '__main__':
     if os.path.exists(cacheFile):
         with open(cacheFile, 'r') as f:
             data_cached = GlucoseData(json.load(f))
-    with open(cacheFile, 'w') as file:
-        json.dump(content, file, indent=4)
-        print("Saving data to {}".format(data_latest.deviceName))
     if data_cached:
         print("Found cache for device {}, it was read at {}".format(data_cached.deviceName,
                                                                     arrow.get(int(data_cached.latestGlucoseTime)).humanize()))
@@ -218,6 +215,9 @@ if __name__ == '__main__':
                                  json=entries)
         if response.ok:
             print("Successfully uploaded {} entries!!!".format(len(entries)))
+            with open(cacheFile, 'w') as file:
+                json.dump(content, file, indent=4)
+                print("Saving data to {}".format(data_latest.deviceName))
         else:
             print("Upload failed. {}".format(response.text))
 
