@@ -35,8 +35,8 @@ class GlucoseData:
                     if glucoseInfo['t'] < oldest_precision_timestamp:
                         oldest_precision_timestamp = glucoseInfo['t']
             # glucose data longer than 24 hours will be archived to dailyData, and timestamp will be
-            # rounded down to nearest mintute
-            archived_maximum_timestamp = GlucoseData.get_archive_timestamp(oldest_precision_timestamp)
+            # rounded to nearest mintute
+            archived_maximum_timestamp, _ = GlucoseData.get_archive_timestamp(oldest_precision_timestamp)
             for dailyData in json_data['data']['followedDeviceGlucoseDataPO']['dailyData']:
                 for item in dailyData['data']:
                     # Skip this entry as it's already covered in glucoseInfo
@@ -57,8 +57,11 @@ class GlucoseData:
 
     @classmethod
     def get_archive_timestamp(cls, timestamp):
-        # A timestamp will be round down to minutes
-        return int(timestamp/1000/60)*1000*60
+        remainder = timestamp % (1000 * 60)
+        round_down_minute = timestamp - remainder
+        round_up_minute = timestamp + (1000 * 60 - remainder)
+        # A timestamp will either be round down or up to nearest minute
+        return round_down_minute, round_up_minute
 
     @classmethod
     def get_new_data_after_time(cls, cur_glucose_data, timestamp):
@@ -80,9 +83,9 @@ class GlucoseData:
         not_present_data = {}
         not_match_data = {}
         for timestamp, value in cached_glucose_data.data.items():
-            # Any data entry in cached glucose data could either be: a) still with precision timestamp; b) be archived(round down) in updated glucose_data
-            rounddown_time = cls.get_archive_timestamp(timestamp)
-            if timestamp not in updated_glucose_data.data and rounddown_time not in updated_glucose_data.data:
+            # Any data entry in cached glucose data could either be: a) still with precision timestamp; b) be archived(rounded) in updated glucose_data
+            rounddown_time, roundup_time = cls.get_archive_timestamp(timestamp)
+            if timestamp not in updated_glucose_data.data and rounddown_time not in updated_glucose_data.data and roundup_time not in updated_glucose_data.data:
                 not_present_data[timestamp] = value
             else:
                 new_value = updated_glucose_data.data[timestamp] if timestamp in updated_glucose_data.data else updated_glucose_data.data[rounddown_time]
@@ -107,9 +110,11 @@ class GlucoseData:
         #     cache:       (ta, v, -)  (ts, v, s)
         # In that case, we also need to exclude that from updated_glucose
         for k, v in cached_glucose_data.data.items():
-            r_k = cls.get_archive_timestamp(k)
-            if r_k in updated_glucose_data.data:
-                del updated_glucose_data.data[r_k]
+            rd_k, ru_k = cls.get_archive_timestamp(k)
+            if rd_k in updated_glucose_data.data:
+                del updated_glucose_data.data[rd_k]
+            if ru_k in updated_glucose_data.data:
+                del updated_glucose_data.data[ru_k]
         # Be noted, the data could still be empty
         return new_data
 
