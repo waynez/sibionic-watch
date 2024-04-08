@@ -22,7 +22,7 @@ jobs:
       run: docker build . --file Dockerfile --tag sibionic-watch:${{ steps.get-timestamp.outputs.timestamp }}
 
     - name: Tag Docker image
-      run: docker tag sibionic-watch:${{ steps.get-timestamp.outputs.timestamp }} waynzh/sibionic-watch:latest
+      run: docker tag sibionic-watch:${{ steps.get-timestamp.outputs.timestamp }} waynezh/sibionic-watch:latest
     
     - name: Login to Docker Hub
       run: echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u waynezh --password-stdin
