@@ -85,13 +85,14 @@ class GlucoseData:
         for timestamp, value in cached_glucose_data.data.items():
             # Any data entry in cached glucose data could either be: a) still with precision timestamp; b) be archived(rounded) in updated glucose_data
             rounddown_time, roundup_time = cls.get_archive_timestamp(timestamp)
-            if timestamp not in updated_glucose_data.data and rounddown_time not in updated_glucose_data.data and roundup_time not in updated_glucose_data.data:
+            if not any(t in updated_glucose_data.data for t in [timestamp, rounddown_time, roundup_time])
                 not_present_data[timestamp] = value
             else:
-                new_value = updated_glucose_data.data[timestamp] if timestamp in updated_glucose_data.data else updated_glucose_data.data[rounddown_time]
+                new_timestamp = next(t for t in [timestamp, rounddown_time, roundup_time] if t in updated_glucose_data.data)
+                new_value = updated_glucose_data.data[new_timestamp]
                 if value[0] != new_value[0]:
                    v, t = value
-                   n_v, n_t = updated_glucose_data.data[timestamp] if timestamp in updated_glucose_data.data else updated_glucose_data.data[rounddown_time]
+                   n_v, n_t = updated_glucose_data.data[new_timestamp]
                    not_match_data[timestamp] = (v, t, n_v, n_t)
 
         if not_present_data:
