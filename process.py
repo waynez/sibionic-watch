@@ -138,6 +138,10 @@ if __name__ == '__main__':
     parser.add_argument('--cache_dir', help="Directory where the cache data will be saved. E.g., /usr/local/data/cgm/", required=False)
     parser.add_argument('--delay', type=int, help="Delay number of seconds before execution", required=False)
     args = parser.parse_args()
+    if args.delay is not None:
+        print("Delaying {} seconds...".format(args.delay))
+        time.sleep(args.delay)
+
     cache_dir = os.path.join(os.getcwd(), 'cache')
     if args.cache_dir is not None:
         cache_dir = args.cache_dir
@@ -167,32 +171,35 @@ if __name__ == '__main__':
     if data_cached:
         print("Found cache for device {}, it was read at {}".format(data_cached.deviceName,
                                                                     arrow.get(data_cached.latestGlucoseTime).humanize()))
+        print("Adjusting pace based on the sensor reading pace in cache...")
+        s_delay = int(data_cached.latestGlucoseTime / 1000) % (60 * 5)
+        print("Sensor reading happens {} seconds after every 5 minutes".format(s_delay))
+        s_delay = (s_delay + 60) % (60*5)  # 60 seconds overhead for data upload
+        print("Sensor reading should be available {} seconds after every 5 minutes".format(s_delay))
+        now = int(time.time())
+        c_delay = now % (60 * 5)
+        print("Current time is {} seconds after every 5 minutes".format(c_delay))
+        if s_delay < c_delay and c_delay - s_delay < 60:
+            print("Sensor reading should've been updated within 2 minutes")
+        else:
+            delay = (s_delay - c_delay + 60 * 5) % (60 * 5)
+            print("Delay {} seconds for next reading".format(delay))
+            time.sleep(delay)
+            print("Freshing sensor reading")
+            response = requests.get(config.SIBIONIC_URL_FOLLOWED_USER_DATA, headers={'Authorization':config.SIBIONIC_ACCESS_TOKEN})
+            if not response.ok:
+                print("Error! SiBionic API access failed!")
+                sys.exit(-1)
+            content = json.loads(response.text)
+            if content['code'] != 200:
+                print("Error! SiBionic API access failed. Code: {}; Message: {}".format(content['code'], content['msg']))
+                sys.exit(-1)
+            data_latest = GlucoseData(content)
+
         data_to_process = GlucoseData.compare_and_get_new_data(data_cached, data_latest)
     else:
         print("No cache data for device {}".format(data_latest.deviceName))
         data_to_process = data_latest
-
-    if args.delay is not None:
-        print("Delaying {} seconds...".format(args.delay))
-        time.sleep(args.delay)
-    else:
-        if data_cached:
-            print("Adjusting pace based on the sensor reading pace in cache...")
-            s_delay = int(data_cached.latestGlucoseTime / 1000) % (60 * 5)
-            print("Sensor reading happens {} seconds after every 5 minutes".format(s_delay))
-            s_delay = (s_delay + 60) % (60*5)  # 60 seconds overhead for data upload
-            print("Sensor reading should be available {} seconds after every 5 minutes".format(s_delay))
-            now = int(time.time())
-            c_delay = now % (60 * 5)
-            print("Current time is {} seconds after every 5 minutes".format(c_delay))
-            if s_delay < c_delay and c_delay - s_delay < 60:
-                print("Sensor reading should've been updated within 2 minutes")
-            else:
-                delay = (s_delay - c_delay + 60 * 5) % (60 * 5)
-                print("Delay {} seconds for next reading".format(delay))
-                time.sleep(delay)
-        else:
-            print("Not delaying...")
 
     dt = arrow.get(data_latest.latestGlucoseTime)
     print('Most recent glucose data was read at {}'.format(dt.humanize()))
