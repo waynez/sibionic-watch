@@ -138,9 +138,6 @@ if __name__ == '__main__':
     parser.add_argument('--cache_dir', help="Directory where the cache data will be saved. E.g., /usr/local/data/cgm/", required=False)
     parser.add_argument('--delay', type=int, help="Delay number of seconds before execution", required=False)
     args = parser.parse_args()
-    if args.delay is not None:
-        print("Delaying {} seconds...".format(args.delay))
-        time.sleep(args.delay)
     cache_dir = os.path.join(os.getcwd(), 'cache')
     if args.cache_dir is not None:
         cache_dir = args.cache_dir
@@ -174,6 +171,27 @@ if __name__ == '__main__':
     else:
         print("No cache data for device {}".format(data_latest.deviceName))
         data_to_process = data_latest
+
+    if args.delay is not None:
+        print("Delaying {} seconds...".format(args.delay))
+        time.sleep(args.delay)
+    else:
+        if data_cached:
+            print("Adjusting pace based on the sensor reading pace in cache...")
+            s_delay = int(data_cached.latestGlucoseTime / 1000) % (60 * 5)
+            print("Sensor reading happens {} seconds after every 5 minutes".format(s_delay))
+            now = int(time.time())
+            c_delay = now % (60 * 5)
+            print("Current time is {} seconds after every 5 minutes".format(c_delay))
+            if s_delay < c_delay and c_delay - s_delay < 60 * 2:
+                print("Sensor reading should've been updated within 2 minutes")
+            else:
+                delay = (s_delay - c_delay + 60 * 5) % (60 * 5)
+                print("Delay {} seconds for next reading".format(delay))
+                time.sleep(delay)
+                time.sleep(5) # 5 more seconds for the data to be uploaded to server
+        else:
+            print("Not delaying...")
 
     dt = arrow.get(int(data_latest.latestGlucoseTime))
     print('Most recent glucose data was read at {}'.format(dt.humanize()))
