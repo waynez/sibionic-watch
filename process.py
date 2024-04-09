@@ -46,7 +46,7 @@ class GlucoseData:
                         self.add_record(item['t'], item['v'])
             self.updateTime = json_data['timestamp']
             self.deviceName = json_data['data']['followedDeviceGlucoseDataPO']['deviceName']
-            self.latestGlucoseTime = json_data['data']['followedDeviceGlucoseDataPO']['latestGlucoseTime']
+            self.latestGlucoseTime = int(json_data['data']['followedDeviceGlucoseDataPO']['latestGlucoseTime'])
 
     def add_record(self, timestamp, value, trend=None):
         if timestamp in self.data:
@@ -166,7 +166,7 @@ if __name__ == '__main__':
             data_cached = GlucoseData(json.load(f))
     if data_cached:
         print("Found cache for device {}, it was read at {}".format(data_cached.deviceName,
-                                                                    arrow.get(int(data_cached.latestGlucoseTime)).humanize()))
+                                                                    arrow.get(data_cached.latestGlucoseTime).humanize()))
         data_to_process = GlucoseData.compare_and_get_new_data(data_cached, data_latest)
     else:
         print("No cache data for device {}".format(data_latest.deviceName))
@@ -193,7 +193,7 @@ if __name__ == '__main__':
         else:
             print("Not delaying...")
 
-    dt = arrow.get(int(data_latest.latestGlucoseTime))
+    dt = arrow.get(data_latest.latestGlucoseTime)
     print('Most recent glucose data was read at {}'.format(dt.humanize()))
 
     # Filter out those records already in NightScout
