@@ -180,16 +180,17 @@ if __name__ == '__main__':
             print("Adjusting pace based on the sensor reading pace in cache...")
             s_delay = int(data_cached.latestGlucoseTime / 1000) % (60 * 5)
             print("Sensor reading happens {} seconds after every 5 minutes".format(s_delay))
+            s_delay = (s_delay + 60) % (60*5)  # 60 seconds overhead for data upload
+            print("Sensor reading should be available {} seconds after every 5 minutes".format(s_delay))
             now = int(time.time())
             c_delay = now % (60 * 5)
             print("Current time is {} seconds after every 5 minutes".format(c_delay))
-            if s_delay < c_delay and c_delay - s_delay < 60 * 2:
+            if s_delay < c_delay and c_delay - s_delay < 60:
                 print("Sensor reading should've been updated within 2 minutes")
             else:
                 delay = (s_delay - c_delay + 60 * 5) % (60 * 5)
                 print("Delay {} seconds for next reading".format(delay))
                 time.sleep(delay)
-                time.sleep(5) # 5 more seconds for the data to be uploaded to server
         else:
             print("Not delaying...")
 
